@@ -25,7 +25,7 @@ import (
 
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/plugin"
-	cni "github.com/containerd/go-cni"
+	"github.com/containerd/go-cni"
 	runcapparmor "github.com/opencontainers/runc/libcontainer/apparmor"
 	runcseccomp "github.com/opencontainers/runc/libcontainer/seccomp"
 	"github.com/opencontainers/selinux/go-selinux"
@@ -95,6 +95,8 @@ type criService struct {
 	client *containerd.Client
 	// streamServer is the streaming server serves container streaming request.
 	streamServer streaming.Server
+	// advertiseStreamServer is the advertise streaming server serves container streaming request.
+	advertiseStreamServer streaming.Server
 	// eventMonitor is the monitor monitors containerd events.
 	eventMonitor *eventMonitor
 	// initialized indicates whether the server is initialized. All GRPC services
@@ -155,6 +157,11 @@ func NewCRIService(config criconfig.Config, client *containerd.Client) (CRIServi
 	c.streamServer, err = newStreamServer(c, config.StreamServerAddress, config.StreamServerPort)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create stream server")
+	}
+
+	c.advertiseStreamServer, err = newStreamServer(c, config.AdvertiseStreamServerAddress, config.StreamServerPort)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create advertise stream server")
 	}
 
 	c.eventMonitor = newEventMonitor(c)

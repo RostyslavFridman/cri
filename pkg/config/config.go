@@ -122,6 +122,8 @@ type PluginConfig struct {
 	Registry Registry `toml:"registry" json:"registry"`
 	// StreamServerAddress is the ip address streaming server is listening on.
 	StreamServerAddress string `toml:"stream_server_address" json:"streamServerAddress"`
+	// AdvertiseStreamServerAddress is the ip address streaming server is advertising on.
+	AdvertiseStreamServerAddress string `toml:"advertise_stream_server_address" json:"advertiseStreamServerAddress"`
 	// StreamServerPort is the port streaming server is listening on.
 	StreamServerPort string `toml:"stream_server_port" json:"streamServerPort"`
 	// EnableSelinux indicates to enable the selinux support.
@@ -184,10 +186,11 @@ func DefaultConfig() PluginConfig {
 			},
 			NoPivot: false,
 		},
-		StreamServerAddress: "127.0.0.1",
-		StreamServerPort:    "0",
-		EnableSelinux:       false,
-		EnableTLSStreaming:  false,
+		StreamServerAddress:          "127.0.0.1",
+		AdvertiseStreamServerAddress: "127.0.0.1",
+		StreamServerPort:             "0",
+		EnableSelinux:                false,
+		EnableTLSStreaming:           false,
 		X509KeyPairStreaming: X509KeyPairStreaming{
 			TLSKeyFile:  "",
 			TLSCertFile: "",

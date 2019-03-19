@@ -17,9 +17,18 @@ limitations under the License.
 package server
 
 import (
+	"net/http"
+	"sync"
+
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
+)
+
+var (
+	mu                           sync.Mutex
+	advertiseStreamServerRunning bool
 )
 
 // Exec prepares a streaming endpoint to execute a command in the container, and returns the address.
@@ -32,5 +41,38 @@ func (c *criService) Exec(ctx context.Context, r *runtime.ExecRequest) (*runtime
 	if state != runtime.ContainerState_CONTAINER_RUNNING {
 		return nil, errors.Errorf("container is in %s state", criContainerStateToString(state))
 	}
+
+	if c.config.StreamServerAddress != c.config.AdvertiseStreamServerAddress {
+		if !isAdvertiseStreamServerRunning() {
+			// Use channel to make sure the first exec will be successful
+			advertiseStreamServerCh := make(chan struct{})
+			go func() {
+				setAdvertiseStreamServerRunning(true)
+				defer setAdvertiseStreamServerRunning(false)
+				close(advertiseStreamServerCh)
+				if err := c.advertiseStreamServer.Start(true); err != nil && err != http.ErrServerClosed {
+					logrus.WithError(err).Error("Failed to start advertise streaming server")
+				}
+			}()
+
+			<-advertiseStreamServerCh
+		}
+		return c.advertiseStreamServer.GetExec(r)
+	}
+
 	return c.streamServer.GetExec(r)
+}
+
+func isAdvertiseStreamServerRunning() bool {
+	mu.Lock()
+	defer mu.Unlock()
+
+	return advertiseStreamServerRunning
+}
+
+func setAdvertiseStreamServerRunning(v bool) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	advertiseStreamServerRunning = v
 }
