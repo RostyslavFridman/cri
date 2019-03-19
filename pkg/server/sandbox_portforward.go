@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net/http"
 	"os/exec"
 	"strings"
 
@@ -41,6 +42,25 @@ func (c *criService) PortForward(ctx context.Context, r *runtime.PortForwardRequ
 	if sandbox.Status.Get().State != sandboxstore.StateReady {
 		return nil, errors.New("sandbox container is not running")
 	}
+
+	if c.config.StreamServerAddress != c.config.AdvertiseStreamServerAddress {
+		if !isAdvertiseStreamServerRunning() {
+			// Use channel to make sure the first exec will be successful
+			advertiseStreamServerCh := make(chan struct{})
+			go func() {
+				setAdvertiseStreamServerRunning(true)
+				defer setAdvertiseStreamServerRunning(false)
+				close(advertiseStreamServerCh)
+				if err := c.advertiseStreamServer.Start(true); err != nil && err != http.ErrServerClosed {
+					logrus.WithError(err).Error("Failed to start advertise streaming server")
+				}
+			}()
+
+			<-advertiseStreamServerCh
+		}
+		return c.advertiseStreamServer.GetPortForward(r)
+	}
+
 	// TODO(random-liu): Verify that ports are exposed.
 	return c.streamServer.GetPortForward(r)
 }
